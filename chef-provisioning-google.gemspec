@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'chef', '>= 11.16.4'
   s.add_dependency 'chef-provisioning', '~> 0.9'
-  s.add_dependency 'google'
+  s.add_dependency 'google-api-client'
 
   s.add_development_dependency 'rspec', '~> 3.0'
   s.add_development_dependency 'rake'
