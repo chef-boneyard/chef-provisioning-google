@@ -41,6 +41,7 @@ module Client
 
     # This returns the minimum set of options needed to create a Google
     # instance.  It adds required options (like name) to the object.
+    # https://cloud.google.com/compute/docs/instances#startinstanceapi
     def default_create_options(zone, name)
       {
         :machineType=>"zones/#{zone}/machineTypes/f1-micro",

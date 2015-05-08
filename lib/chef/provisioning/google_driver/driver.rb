@@ -95,6 +95,7 @@ module GoogleDriver
     def destroy_machine(action_handler, machine_spec, machine_options)
       name = machine_spec.name
       instance = instance_client.get(name)
+      # https://cloud.google.com/compute/docs/instances#checkmachinestatus
       if instance && instance[:status] != "STOPPING"
         operation_id = nil
         action_handler.perform_action "destroying instance named #{name} in zone #{zone}" do
