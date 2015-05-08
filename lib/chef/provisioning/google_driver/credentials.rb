@@ -2,8 +2,8 @@ class Chef
 module Provisioning
 module GoogleDriver
   # Access various forms of Google credentials
-  # TODO: currently only supports [API key](https://developers.google.com/api-client-library/ruby/auth/api-keys)
-  # OAuth 2.0 is required for accessing user data
+  # TODO: load credentials from JSON file on disc
+  # TODO: load credentials from metadata server when provisioning from a GCE machine
   class Credentials
 
     REQUIRED_KEYS = [:p12_path, :issuer, :passphrase].freeze
