@@ -1,11 +1,11 @@
 require 'chef/provisioning/driver'
 require 'chef/provisioning/google_driver/credentials'
-require 'chef/resource/google_instance'
 require 'chef/provisioning/google_driver/version'
 require 'chef/mixin/deep_merge'
 
 require_relative 'client/instance_client'
 require_relative 'client/operations_client'
+require_relative 'client/project_client'
 
 require 'google/api_client'
 require 'retryable'
@@ -19,7 +19,7 @@ module GoogleDriver
 
     include Chef::Mixin::DeepMerge
 
-    attr_reader :google, :zone, :project, :instance_client, :operations_client
+    attr_reader :google, :zone, :project, :instance_client, :operations_client, :project_client
     URL_REGEX = /^google:(.+):(.+)$/
 
     # URL scheme:
@@ -55,6 +55,7 @@ module GoogleDriver
 
       @operations_client = Client::Operations.new(google, project, zone)
       @instance_client = Client::Instance.new(google, project, zone)
+      @project_client = Client::Project.new(google, project, zone)
 
     end
 
@@ -123,11 +124,21 @@ module GoogleDriver
                            end
     end
 
+    # TODO make these configurable
+    def tries
+      30
+    end
+    def sleep
+      5
+    end
     # TODO the operation_id isn't useful output
+    # TODO update to take the full operation body
     def wait_for_operation(action_handler, operation_id)
-      Retryable.retryable(:tries => 30, :sleep => 5) do |retries, exception|
-        action_handler.report_progress("  waited #{retries*5}/#{30*5}s for operation #{operation_id} to complete")
-        operation = operations_client.get(operation_id)
+      Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
+        action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for operation #{operation_id} to complete")
+        # TODO it is really awesome that there are 3 types of operations, and the only way of telling
+        # which is which is to parse the full `:selfLink` from the response body
+        operation = operations_client.zone_get(operation_id)
         raise "Not done" unless operation[:body][:status] == "DONE"
         operation
       end

@@ -7,10 +7,6 @@ module GoogleDriver
 module Client
   class Instance < GoogleBase
 
-    def initialize(google, project, zone)
-      super(google, project, zone)
-    end
-
     def get(name)
       result = make_request(
         compute.instances.get,
