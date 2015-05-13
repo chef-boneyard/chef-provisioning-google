@@ -22,7 +22,8 @@ module Client
         nil,
         options
       )
-      raise result[:body] if result[:status] != 200
+      # TODO create custom error (in base) which pretty prints these messages
+      raise result[:body].to_s if result[:status] != 200
       operation_id = result[:body][:name]
     end
 
@@ -31,7 +32,7 @@ module Client
         compute.instances.delete,
         {:instance => name}
       )
-      raise result[:body] if result[:status] != 200
+      raise result[:body].to_s if result[:status] != 200
       operation_id = result[:body][:name]
     end
 
