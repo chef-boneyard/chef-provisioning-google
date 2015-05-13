@@ -35,6 +35,15 @@ module Client
       operation_id = result[:body][:name]
     end
 
+    def start(name)
+      result = make_request(
+        compute.instances.start,
+        {:instance => name}
+      )
+      return nil if result[:status] == 404
+      return result[:body]
+    end
+
     # This returns the minimum set of options needed to create a Google
     # instance.  It adds required options (like name) to the object.
     # https://cloud.google.com/compute/docs/instances#startinstanceapi
@@ -47,7 +56,7 @@ module Client
           :autoDelete=>true,
           :boot=>true,
           :initializeParams=>{
-            :sourceImage=>"projects/coreos-cloud/global/images/coreos-stable-633-1-0-v20150414"
+            :sourceImage=>"projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20150316"
           },
           :type=>"PERSISTENT"
         }],
