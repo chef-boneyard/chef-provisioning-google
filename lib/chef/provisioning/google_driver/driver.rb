@@ -74,11 +74,10 @@ module GoogleDriver
     end
 
     def allocate_machine(action_handler, machine_spec, machine_options)
-      name = machine_spec.name
-      # TODO update to `instance_for` when we get the reference storing/updating correctly
-      # TODO how do we handle running `allocate` and there is already a machine in AWS
+      # TODO how do we handle running `allocate` and there is already a machine in GCE
       #   but no node in chef?  We should just start tracking it.
-      if instance_client.get(name).nil?
+      if instance_for(machine_spec).nil?
+        name = machine_spec.name
         operation_id = nil
         action_handler.perform_action "creating instance named #{name} in zone #{zone}" do
           default_options = instance_client.default_create_options(zone, name)
@@ -105,15 +104,19 @@ module GoogleDriver
     end
 
     def ready_machine(action_handler, machine_spec, machine_options)
-      instance = instance_client.get(machine_spec.name)
+      name = machine_spec.name
+      instance = instance_for(machine_spec)
 
       if instance.nil? || instance[:status] == "TERMINATED"
-        raise "Machine #{machine_spec.name} does not have an instance associated with it, or instance does not exist."
+        raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
       if instance[:status] != "RUNNING"
-        if ["STOPPING", "STOPPED"].include?(instance[:status])
-          instance_client.start(machine_spec.name)
+        # could be PROVISIONING, STAGING, STOPPING, STOPPED
+        if %w(STOPPING STOPPED).include?(instance[:status])
+          action_handler.perform_action "instance named #{name} in zone #{zone} was stopped - starting it" do
+            instance_client.start(name)
+          end
         end
         wait_for_status(action_handler, instance, "RUNNING")
       end
@@ -124,9 +127,9 @@ module GoogleDriver
 
     def destroy_machine(action_handler, machine_spec, machine_options)
       name = machine_spec.name
-      instance = instance_client.get(name)
+      instance = instance_for(machine_spec)
       # https://cloud.google.com/compute/docs/instances#checkmachinestatus
-      if instance && !communication_down?(instance)
+      if instance && !%w(STOPPING STOPPED TERMINATED).include?(instance[:status])
         operation_id = nil
         action_handler.perform_action "destroying instance named #{name} in zone #{zone}" do
           operation_id = instance_client.delete(name)
@@ -137,6 +140,27 @@ module GoogleDriver
       strategy = convergence_strategy_for(machine_spec, machine_options)
       strategy.cleanup_convergence(action_handler, machine_spec)
       # TODO clean up known_hosts entry
+    end
+
+    def stop_machine(action_handler, machine_spec, machine_options)
+      name = machine_spec.name
+      instance = instance_for(machine_spec)
+
+      if instance.nil? || instance[:status] == "TERMINATED"
+        raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
+      end
+
+      if instance[:status] != "STOPPED"
+        if instance[:status] != "STOPPING"
+          action_handler.perform_action "stopping instance named #{name} in zone #{zone}" do
+            instance_client.stop(name)
+          end
+        end
+        # TODO well this doesn't make any sense - if you send a stop signal, the instance shows up as
+        # TERMINATED status instead of STOPPED
+        #wait_for_status(action_handler, instance, "STOPPED")
+        wait_for_status(action_handler, instance, "TERMINATED")
+      end
     end
 
     def wait_for_transport(action_handler, machine_spec, machine_options, instance)
@@ -212,7 +236,7 @@ module GoogleDriver
     end
 
     def machine_for(machine_spec, machine_options, instance = nil)
-      instance ||= instance_client.get(machine_spec.name)
+      instance ||= instance_for(machine_spec)
 
       if !instance
         raise "Instance for node #{machine_spec.name} has not been created!"
@@ -248,6 +272,15 @@ module GoogleDriver
       end
     end
 
+    def instance_for(machine_spec)
+      if machine_spec.reference
+        if machine_spec.driver_url != driver_url
+          raise "Switching a machine's driver from #{machine_spec.driver_url} to #{driver_url} is not currently supported!  Use machine :destroy and then re-create the machine on the new driver."
+        end
+        instance_client.get(machine_spec.name)
+      end
+    end
+
     private
 
     # TODO load from file or env variables using common google method
@@ -271,12 +304,13 @@ module GoogleDriver
       5
     end
     # TODO the operation_id isn't useful output
-    # TODO update to take the full operation body
     def wait_for_operation(action_handler, operation_id)
       Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
         action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for operation #{operation_id} to complete")
         # TODO it is really awesome that there are 3 types of operations, and the only way of telling
-        # which is which is to parse the full `:selfLink` from the response body
+        # which is which is to parse the full `:selfLink` from the response body.  Update this method
+        # to take the full operation response from Google so it can tell which operation endpoint
+        # to hit
         operation = operations_client.zone_get(operation_id)
         raise "Not done" unless operation[:body][:status] == "DONE"
         operation
@@ -291,10 +325,6 @@ module GoogleDriver
         raise "Not done" unless instance[:status] == status
         instance
       end
-    end
-
-    def communication_down?(instance)
-      ["STOPPING", "STOPPED", "TERMINATED"].include? instance[:status]
     end
 
   end

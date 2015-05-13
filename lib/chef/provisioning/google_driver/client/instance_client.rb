@@ -41,7 +41,16 @@ module Client
         {:instance => name}
       )
       return nil if result[:status] == 404
-      return result[:body]
+      operation_id = result[:body][:name]
+    end
+
+    def stop(name)
+      result = make_request(
+        compute.instances.stop,
+        {:instance => name}
+      )
+      return nil if result[:status] == 404
+      operation_id = result[:body][:name]
     end
 
     # This returns the minimum set of options needed to create a Google
