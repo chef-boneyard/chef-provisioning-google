@@ -19,6 +19,10 @@ class Chef::Resource::GoogleKeyPair < Chef::Resource::LWRPBase
   # This applies to both the local keys and the remote key
   attribute :allow_overwrite, :kind_of => [TrueClass, FalseClass], :default => false
 
+  # TODO: add a `user` attribute which sets the user to login with the key
+  # GCE uses the key user to create a user on the instance, which may duplicate
+  # some logic the user is trying to do with their chef recipes
+
   def after_created
     # We default these here so load_current_resource can diff
     if private_key_path.nil?
