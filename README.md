@@ -22,10 +22,9 @@ instances.
 
 Access `APIs & auth` -> `Credentials` from the navigation gutter.  Click the `Create new Client ID` button
 and select `Service Account` and `P12 Key` from the options menu.  This will create your service user and will download
-the P12 key to your workstation.  It will also show the passphrase used to generate the P12 key.
+the P12 key to your workstation.
 
-Provide the full path to the downloaded P12 file, the `Email Address` as the `:issuer` and the passphrase to the
-`:google_credentials` hash as seen below.
+Provide the full path to the downloaded P12 file, the `Email Address` as the `:google_client_email` to the `:google_credentials` hash as seen below.
 
 ## Sample Recipe
 
@@ -36,9 +35,8 @@ require 'chef/provisioning/google_driver'
 
 with_driver 'google:us-central1-a:some-project',
   :google_credentials => {
-    :p12_path => 'REDACTED',
-    :issuer => 'REDACTED',
-    :passphrase => 'REDACTED'
+    :p12_key_path => 'REDACTED',
+    :google_client_email => 'REDACTED',
   }
 
 google_key_pair "chef_default" do

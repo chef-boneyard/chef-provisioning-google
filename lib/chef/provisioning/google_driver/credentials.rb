@@ -6,7 +6,7 @@ module GoogleDriver
   # TODO: load credentials from metadata server when provisioning from a GCE machine
   class Credentials
 
-    REQUIRED_KEYS = [:p12_path, :issuer, :passphrase].freeze
+    REQUIRED_KEYS = [:p12_key_path, :google_client_email].freeze
 
     def initialize
       @credentials = {}

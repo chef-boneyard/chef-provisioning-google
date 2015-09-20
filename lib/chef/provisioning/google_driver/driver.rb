@@ -53,13 +53,14 @@ module GoogleDriver
         :application_name => 'chef-provisioning-google',
         :application_version => Chef::Provisioning::GoogleDriver::VERSION
       )
-      key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_path], google_credentials[:passphrase])
+      #TODO: Throw a meaningful error if the key is not found on the filesystem or the type is wrong.
+      signing_key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_key_path], 'notasecret')
       google.authorization = Signet::OAuth2::Client.new(
         :token_credential_uri => 'https://accounts.google.com/o/oauth2/token',
         :audience => 'https://accounts.google.com/o/oauth2/token',
         :scope => ['https://www.googleapis.com/auth/compute','https://www.googleapis.com/auth/compute.readonly'],
-        :issuer => google_credentials[:issuer],
-        :signing_key => key,
+        :issuer => google_credentials[:google_client_email],
+        :signing_key => signing_key,
       )
       google.authorization.fetch_access_token!
 

@@ -4,9 +4,8 @@ require 'chef/provisioning/google_driver'
 # the SDK for loading credentials - https://developers.google.com/cloud/sdk/gcloud/reference/compute/?hl=en_US
 with_driver 'google:us-central1-a:inspired-bebop-518',
   :google_credentials => {
-    :p12_path => '',
-    :issuer => '',
-    :passphrase => ''
+    :p12_key_path => '',
+    :google_client_email => '',
   }
 
 google_key_pair "chef_default" do
