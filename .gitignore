@@ -1,3 +1,23 @@
+# Temporary files
+*~
+.vim/.netrwhist
+
+# Folder view configuration
+.DS_Store
+Desktop.ini
+
+# Thumbnail cache files
+._*
+Thumbs.db
+
+# Mac-specific files that appear on mounted drives
+.Spotlight-V100
+.Trashes
+
+# IDE files
+.idea
+
+# Project-specific
 *.gem
 *.rbc
 .bundle
