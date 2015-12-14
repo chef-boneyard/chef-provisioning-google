@@ -37,7 +37,6 @@ module Client
     def set_metadata(metadata_item)
       current_metadata = get_metadata
       fingerprint = current_metadata[:fingerprint]
-
       items = current_metadata[:items].delete_if {|m| m[:key] == metadata_item[:key]}
       items << metadata_item
       result = make_request(
@@ -54,22 +53,24 @@ module Client
     def get_ssh_keys
       list = get_metadata[:items].select {|m| m[:key] == SSH_KEYS}.first
       if list
-        mappings = {}
+        mappings = []
         list[:value].split("\n").each do |mapping|
-          username = mapping.split(":")[0]
-          key = mapping.split(":")[1]
-          mappings[username] = key
+          username = mapping.split(":", 2)[0]
+          key = mapping.split(":", 2)[1]
+          mappings.push([username, key])
         end
         return mappings
       end
-      {}
+      []
     end
 
     # Ensure the list of keys stored in GCE contains the provided key.  If
     # the provided key already exists it will be updated
+    # TODO: This will need to be updated later with user accounts:
+    # see https://cloud.google.com/compute/docs/access/user-accounts/
     def ensure_key(username, local_key)
       keys = get_ssh_keys
-      keys[username] = local_key
+      keys.push([username, local_key])
 
       keys_as_string = keys.map {|u, k| "#{u}:#{k}"}.join("\n")
       set_metadata({:key => SSH_KEYS, :value => keys_as_string})

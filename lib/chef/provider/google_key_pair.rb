@@ -11,6 +11,8 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
     if !current_resource_exists?  || allow_overwrite
       converge_local_keys(:create)
     end
+
+    #Check if keys exist
     unless allow_overwrite
       if current_resource.private_key_path && current_resource.private_key_path != new_private_key_path ||
          current_resource.public_key_path && current_resource.public_key_path != new_public_key_path ||
@@ -172,7 +174,4 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
       operation
     end
   end
-
-
-
 end

@@ -60,7 +60,7 @@ module GoogleDriver
         :audience => 'https://accounts.google.com/o/oauth2/token',
         :scope => ['https://www.googleapis.com/auth/compute','https://www.googleapis.com/auth/compute.readonly'],
         :issuer => google_credentials[:google_client_email],
-        :signing_key => signing_key,
+        :signing_key => signing_key
       )
       google.authorization.fetch_access_token!
 
@@ -217,7 +217,7 @@ module GoogleDriver
       if machine_options[:key_name]
         # TODO how do I add keys to config[:private_keys] ?
         # result[:key_data] = [ get_private_key(machine_options[:key_name]) ]
-        # TODO what to do if we find multiple valid keys in config[:private_key_paths] ?
+        # TODO: what to do if we find multiple valid keys in config[:private_key_paths] ?
         config[:private_key_paths].each do |path|
           result[:key_data] = IO.read("#{path}/#{machine_options[:key_name]}") if File.exist?("#{path}/#{machine_options[:key_name]}")
         end
