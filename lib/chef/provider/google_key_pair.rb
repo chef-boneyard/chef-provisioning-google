@@ -91,8 +91,8 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   # parsed from the private key later if it isn't provided
   def converge_local_keys(action)
     resource = new_resource
-    # TODO I think Cheffish will take care of the directories, but need to test
     Cheffish.inline_resource(self, action) do
+      directory run_context.config[:private_key_write_path]
       private_key resource.private_key_path do
         public_key_path resource.public_key_path if resource.public_key_path
         if resource.private_key_options
