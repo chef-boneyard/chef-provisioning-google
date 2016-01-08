@@ -53,8 +53,12 @@ module GoogleDriver
         :application_name => 'chef-provisioning-google',
         :application_version => Chef::Provisioning::GoogleDriver::VERSION
       )
-      #TODO: Throw a meaningful error if the key is not found on the filesystem or the type is wrong.
-      signing_key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_key_path], 'notasecret')
+      if google_credentials[:p12_key_path]
+        signing_key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_key_path], 'notasecret')
+      elsif google_credentials[:json_key_path]
+        json_private_key = JSON.load(File.open(google_credentials[:json_key_path]))["private_key"]
+        signing_key = Google::APIClient::KeyUtils.load_from_pem(json_private_key, "notasecret")
+      end
       google.authorization = Signet::OAuth2::Client.new(
         :token_credential_uri => 'https://accounts.google.com/o/oauth2/token',
         :audience => 'https://accounts.google.com/o/oauth2/token',

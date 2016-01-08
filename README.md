@@ -17,14 +17,17 @@ and create a project.  This project must be enabled for billing.  Once billing i
 VM instances through the console.
 
 Then you need to set up credentials to use for connecting.  We use the Google OAuth 2.0 credentials.  Because we cannot
-present a pop-up to cookbook writers to authorize access, we create a service user to act on our behalf and request
-instances.
+present a pop-up to cookbook writers to authorize access, we need a service account key and a service user to act on our behalf and request instances.
 
-Access `APIs & auth` -> `Credentials` from the navigation gutter.  Click the `Create new Client ID` button
-and select `Service Account` and `P12 Key` from the options menu.  This will create your service user and will download
-the P12 key to your workstation.
+Service account key workflow:
 
-Provide the full path to the downloaded P12 file, the `Email Address` as the `:google_client_email` to the `:google_credentials` hash as seen below.
+- Access `API Manager` -> `Credentials` from the navigation gutter. 
+- Click the `New Credentials` button and select `Service Account key`. 
+- Select the service account to create the key for or 'New service account' if you haven't created one yet.
+- Choose  `JSON Key` in the Key type options. 
+This will create your service user and will download the JSON key to your workstation.
+
+Provide the full path to the downloaded JSON file as `:json_key_path` anb the `Email Address` (can be found in "Pemissions" -> "Service accounts") as the `:google_client_email`.
 
 ## Sample Recipe
 
@@ -35,7 +38,7 @@ require 'chef/provisioning/google_driver'
 
 with_driver 'google:us-central1-a:some-project',
   :google_credentials => {
-    :p12_key_path => 'REDACTED',
+    :json_key_path => 'REDACTED',
     :google_client_email => 'REDACTED',
   }
 
