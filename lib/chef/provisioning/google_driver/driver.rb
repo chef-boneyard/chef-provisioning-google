@@ -56,8 +56,8 @@ module GoogleDriver
       if google_credentials[:p12_key_path]
         signing_key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_key_path], 'notasecret')
       elsif google_credentials[:json_key_path]
-        json_private_key = JSON.load(File.open(google_credentials[:json_key_path]))["private_key"]
-        signing_key = Google::APIClient::KeyUtils.load_from_pem(json_private_key, "notasecret")
+        json_private_key = JSON.load(File.open(google_credentials[:json_key_path]))['private_key']
+        signing_key = Google::APIClient::KeyUtils.load_from_pem(json_private_key, 'notasecret')
       end
       google.authorization = Signet::OAuth2::Client.new(
         :token_credential_uri => 'https://accounts.google.com/o/oauth2/token',
@@ -224,6 +224,9 @@ module GoogleDriver
         # TODO: what to do if we find multiple valid keys in config[:private_key_paths] ?
         config[:private_key_paths].each do |path|
           result[:key_data] = IO.read("#{path}/#{machine_options[:key_name]}") if File.exist?("#{path}/#{machine_options[:key_name]}")
+        end
+        unless result[:key_data]
+          raise "#{machine_options[:key_name]} doesn't exist in private_key_paths:#{config[:private_key_paths]}"
         end
       else
         raise "No key found to connect to #{machine_spec.name} (#{machine_spec.reference.inspect})!"

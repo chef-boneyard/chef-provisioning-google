@@ -46,7 +46,7 @@ module GoogleDriver
 
         raise "Invalid Google JSON key, no private key" unless json_key_hash.include?("private_key")
       elsif self[:p12_key_path]
-        raise "p12 key doesn't exist in the path specified" unless File.exists?(self[:p12_key_path])
+        raise "p12 key doesn't exist in the path specified" unless File.exist?(self[:p12_key_path])
         raise "google_client_email must be specified" unless self[:google_client_email]
       else
         raise "json_key_path or p12_key_path is missing. Options provided: #{self}"

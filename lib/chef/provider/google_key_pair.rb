@@ -8,7 +8,7 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
 
   # TODO make sure we can take relative paths - where do we get base path from then?
   action :create do
-    if !current_resource_exists?  || allow_overwrite
+    if !current_resource_exists? || allow_overwrite
       converge_local_keys(:create)
     end
 
