@@ -16,7 +16,7 @@ end
 
 machine 'test' do
   machine_options key_name: "google_default"
-  action [:create, :destroy]
+  action [:converge, :destroy]
 end
 
 # load_balancer "test_lb" do
