@@ -8,9 +8,11 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
 
   # TODO make sure we can take relative paths - where do we get base path from then?
   action :create do
-    if !current_resource_exists?  || allow_overwrite
+    if !current_resource_exists? || allow_overwrite
       converge_local_keys(:create)
     end
+
+    #Check if keys exist
     unless allow_overwrite
       if current_resource.private_key_path && current_resource.private_key_path != new_private_key_path ||
          current_resource.public_key_path && current_resource.public_key_path != new_public_key_path ||
@@ -89,8 +91,8 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   # parsed from the private key later if it isn't provided
   def converge_local_keys(action)
     resource = new_resource
-    # TODO I think Cheffish will take care of the directories, but need to test
     Cheffish.inline_resource(self, action) do
+      directory run_context.config[:private_key_write_path]
       private_key resource.private_key_path do
         public_key_path resource.public_key_path if resource.public_key_path
         if resource.private_key_options
@@ -172,7 +174,4 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
       operation
     end
   end
-
-
-
 end
