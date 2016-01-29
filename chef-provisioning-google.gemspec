@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'chef', '>= 11.16.4'
   s.add_dependency 'chef-provisioning', '~> 1.0'
-  s.add_dependency 'google-api-client'
+  s.add_dependency 'google-api-client', '< 0.9', '>= 0.6.2'
   s.add_dependency 'ffi-yajl', '~> 2.2'
   s.add_dependency 'retryable', '~> 2.0'
 

@@ -53,13 +53,18 @@ module GoogleDriver
         :application_name => 'chef-provisioning-google',
         :application_version => Chef::Provisioning::GoogleDriver::VERSION
       )
-      key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_path], google_credentials[:passphrase])
+      if google_credentials[:p12_key_path]
+        signing_key = Google::APIClient::KeyUtils.load_from_pkcs12(google_credentials[:p12_key_path], 'notasecret')
+      elsif google_credentials[:json_key_path]
+        json_private_key = JSON.load(File.open(google_credentials[:json_key_path]))['private_key']
+        signing_key = Google::APIClient::KeyUtils.load_from_pem(json_private_key, 'notasecret')
+      end
       google.authorization = Signet::OAuth2::Client.new(
         :token_credential_uri => 'https://accounts.google.com/o/oauth2/token',
         :audience => 'https://accounts.google.com/o/oauth2/token',
         :scope => ['https://www.googleapis.com/auth/compute','https://www.googleapis.com/auth/compute.readonly'],
-        :issuer => google_credentials[:issuer],
-        :signing_key => key,
+        :issuer => google_credentials[:google_client_email],
+        :signing_key => signing_key
       )
       google.authorization.fetch_access_token!
 
@@ -216,7 +221,13 @@ module GoogleDriver
       if machine_options[:key_name]
         # TODO how do I add keys to config[:private_keys] ?
         # result[:key_data] = [ get_private_key(machine_options[:key_name]) ]
-        result[:key_data] = [ IO.read("#{config[:private_key_paths][0]}/#{machine_options[:key_name]}") ]
+        # TODO: what to do if we find multiple valid keys in config[:private_key_paths] ?
+        config[:private_key_paths].each do |path|
+          result[:key_data] = IO.read("#{path}/#{machine_options[:key_name]}") if File.exist?("#{path}/#{machine_options[:key_name]}")
+        end
+        unless result[:key_data]
+          raise "#{machine_options[:key_name]} doesn't exist in private_key_paths:#{config[:private_key_paths]}"
+        end
       else
         raise "No key found to connect to #{machine_spec.name} (#{machine_spec.reference.inspect})!"
       end
@@ -238,7 +249,7 @@ module GoogleDriver
     def machine_for(machine_spec, machine_options, instance = nil)
       instance ||= instance_for(machine_spec)
 
-      if !instance
+      unless instance
         raise "Instance for node #{machine_spec.name} has not been created!"
       end
 
@@ -258,7 +269,7 @@ module GoogleDriver
         ohai_hints: { 'google' => '' })
 
       # Defaults
-      if !machine_spec.reference
+      unless machine_spec.reference
         return Chef::Provisioning::ConvergenceStrategy::NoConverge.new(convergence_options, config)
       end
 
