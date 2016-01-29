@@ -30,7 +30,7 @@ module GoogleDriver
     include Chef::Mixin::DeepMerge
 
     attr_reader :google, :zone, :project, :instance_client, :operations_client, :project_client
-    URL_REGEX = /^google:(.+):(.+)$/
+    URL_REGEX = /^google:(.+?):(.+)$/
 
     # URL scheme:
     # google:zone
