@@ -6,6 +6,8 @@ class Chef::Resource::GoogleKeyPair < Chef::Resource::LWRPBase
   # TODO instance specific or project wide?
   # Right now we only have project wide keys
 
+  provides :google_key_pair
+
   actions :create, :destroy
   default_action :create
 
