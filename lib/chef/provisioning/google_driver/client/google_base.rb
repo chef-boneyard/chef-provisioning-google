@@ -7,7 +7,7 @@ module Provisioning
 module GoogleDriver
 module Client
   class GoogleBase
-    # TODO make these configurable
+    # TODO make these configurable and find a good place where to put them.
     TRIES = 30
     SLEEP_SECONDS = 5
 

@@ -13,8 +13,9 @@ require 'chef/provisioning/machine/unix_machine'
 require 'chef/provisioning/machine_spec'
 
 require_relative 'client/instances'
-require_relative 'client/zone_operations'
+require_relative 'client/global_operations'
 require_relative 'client/projects'
+require_relative 'client/zone_operations'
 
 require 'google/api_client'
 require 'retryable'
@@ -29,7 +30,7 @@ module GoogleDriver
 
     include Chef::Mixin::DeepMerge
 
-    attr_reader :google, :zone, :project, :instance_client, :zone_operations_client, :project_client
+    attr_reader :google, :zone, :project, :instance_client, :global_operations_client, :zone_operations_client, :project_client
     URL_REGEX = /^google:(.+?):(.+)$/
 
     # URL scheme:
@@ -70,6 +71,8 @@ module GoogleDriver
 
       @instance_client = Client::Instances.new(google, project, zone)
       @project_client = Client::Projects.new(google, project, zone)
+      @global_operations_client =
+        Client::GlobalOperations.new(google, project, zone)
       @zone_operations_client =
         Client::ZoneOperations.new(google, project, zone)
     end
@@ -85,7 +88,7 @@ module GoogleDriver
         name = machine_spec.name
         operation = nil
         action_handler.perform_action "creating instance named #{name} in zone #{zone}" do
-          default_options = instance_client.default_create_options(zone, name)
+          default_options = instance_client.default_create_options(name)
           options = hash_only_merge(default_options, machine_options[:insert_options])
           operation = instance_client.create(options)
         end
@@ -162,6 +165,14 @@ module GoogleDriver
         #wait_for_status(action_handler, instance, "STOPPED")
         instances_client.wait_for_status(action_handler, instance, 'TERMINATED')
       end
+    end
+
+    # TODO make these configurable and find a good place where to put them.
+    def tries
+      Client::GoogleBase::TRIES
+    end
+    def sleep
+      Client::GoogleBase::SLEEP_SECONDS
     end
 
     def wait_for_transport(action_handler, machine_spec, machine_options, instance)
