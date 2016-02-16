@@ -50,7 +50,7 @@ module Client
     # Note that the returned object should not be modified directly.
     # Instead, set_ssh_mapping or delete_ssh_mapping should be used.
     def ssh_mappings
-      @ssh_mappings ||= parse_keys(get_metadata_item(SSH_MAPPINGS)).to_h
+      @ssh_mappings ||= Hash[parse_keys(get_metadata_item(SSH_MAPPINGS))]
     end
 
     def set_ssh_mapping(name, local_key)
@@ -91,12 +91,11 @@ module Client
     # Serializes SSH keys or SSH key mappings into a string.
     # This works both for a hash map or an array of pairs.
     def serialize_keys(keys)
-      # TODO Change the serialization format into something more robust.
       keys.map {|e| e.join(KEY_VALUE_SEPARATOR) }.join(ITEM_SEPARATOR)
     end
 
     # Parses SSH keys or SSH key mappings from a string.
-    # This returns an array of pairs. If a hash_map is needed, .to_h can be
+    # This returns an array of pairs. If a hash_map is needed, Hash[] can be
     # called on the result.
     def parse_keys(keys_string)
       return [] if keys_string.nil?
