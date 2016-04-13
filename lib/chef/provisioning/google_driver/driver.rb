@@ -154,8 +154,8 @@ module GoogleDriver
         raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
-      if !instance[:status].stopped?
-        if !instance[:status].stopping?
+      unless instance[:status].stopped?
+        unless instance[:status].stopping?
           action_handler.perform_action "stopping instance named #{name} in zone #{zone}" do
             instance_client.stop(name)
           end

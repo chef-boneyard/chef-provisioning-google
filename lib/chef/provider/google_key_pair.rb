@@ -165,7 +165,7 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
 
   def reupload_metadata(metadata)
     converge_by 'reuploading changed metadata' do
-      operation = driver.projects_client.set_common_instance_metadata(metadata)
+      operation = driver.project_client.set_common_instance_metadata(metadata)
       driver.global_operations_client.wait_for_done(action_handler, operation)
     end
   end
