@@ -180,7 +180,7 @@ module GoogleDriver
       unless transport.available?
         if action_handler.should_perform_actions
           Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
-            action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for instance #{instance[:name]} to be connectable (transport up and running) ...")
+            action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for instance #{instance.name} to be connectable (transport up and running) ...")
             raise "Not done" unless transport.available?
           end
           action_handler.report_progress "#{machine_spec.name} is now connectable"
