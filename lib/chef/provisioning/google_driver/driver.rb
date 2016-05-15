@@ -110,19 +110,22 @@ module GoogleDriver
       name = machine_spec.name
       instance = instance_for(machine_spec)
 
-      if instance.nil? || instance.terminated?
+      if instance.nil?
         raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
       if !instance.running?
-        # could be PROVISIONING, STAGING, STOPPING, STOPPED
-        if %w(STOPPING STOPPED).include?(instance.status)
+        # could be PROVISIONING, STAGING, STOPPING, TERMINATED
+        if %w(STOPPING TERMINATED).include?(instance.status)
           action_handler.perform_action "instance named #{name} in zone #{zone} was stopped - starting it" do
             instance_client.start(name)
           end
         end
         instance_client.wait_for_status(action_handler, instance, 'RUNNING')
       end
+
+      # Refresh instance object so we get the new ip address and status
+      instance = instance_for(machine_spec)
 
       wait_for_transport(action_handler, machine_spec, machine_options, instance)
       machine_for(machine_spec, machine_options, instance)
@@ -133,7 +136,7 @@ module GoogleDriver
       instance = instance_for(machine_spec)
       # https://cloud.google.com/compute/docs/instances#checkmachinestatus
       # TODO Shouldn't we also delete stopped machines?
-      if instance && !%w(STOPPING STOPPED TERMINATED).include?(instance.status)
+      if instance && !%w(STOPPING TERMINATED).include?(instance.status)
         operation = nil
         action_handler.perform_action "destroying instance named #{name} in zone #{zone}" do
           operation = instance_client.delete(name)
@@ -150,20 +153,21 @@ module GoogleDriver
       name = machine_spec.name
       instance = instance_for(machine_spec)
 
-      if instance.nil? || instance.terminated?
+      if instance.nil?
         raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
-      unless instance[:status].stopped?
-        unless instance[:status].stopping?
+      unless instance.terminated?
+        unless instance.stopping?
           action_handler.perform_action "stopping instance named #{name} in zone #{zone}" do
             instance_client.stop(name)
           end
         end
-        # TODO well this doesn't make any sense - if you send a stop signal, the instance shows up as
-        # TERMINATED status instead of STOPPED
-        #wait_for_status(action_handler, instance, "STOPPED")
-        instances_client.wait_for_status(action_handler, instance, 'TERMINATED')
+        instance_client.wait_for_status(action_handler, instance, 'TERMINATED')
+      end
+
+      if instance.terminated?
+        Chef::Log.info "Instance #{instance.name} already stopped, nothing to do."
       end
     end
 
