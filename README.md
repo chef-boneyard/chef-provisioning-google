@@ -1,5 +1,7 @@
 # chef-provisioning-google
 
+[![Build Status](https://travis-ci.org/chef/chef-provisioning-google.svg?branch=master)](https://travis-ci.org/chef/chef-provisioning-google)
+
 ## Development Process
 
 The [GoogleDriver](https://github.com/someara/chef-provisioning-google/blob/master/lib/chef/provisioning/google_driver/driver.rb)
