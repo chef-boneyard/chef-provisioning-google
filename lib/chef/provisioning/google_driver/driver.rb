@@ -12,9 +12,10 @@ require 'chef/provisioning/machine/windows_machine'
 require 'chef/provisioning/machine/unix_machine'
 require 'chef/provisioning/machine_spec'
 
-require_relative 'client/instance_client'
-require_relative 'client/operations_client'
-require_relative 'client/project_client'
+require_relative 'client/instances'
+require_relative 'client/global_operations'
+require_relative 'client/projects'
+require_relative 'client/zone_operations'
 
 require 'google/api_client'
 require 'retryable'
@@ -29,8 +30,8 @@ module GoogleDriver
 
     include Chef::Mixin::DeepMerge
 
-    attr_reader :google, :zone, :project, :instance_client, :operations_client, :project_client
-    URL_REGEX = /^google:(.+):(.+)$/
+    attr_reader :google, :zone, :project, :instance_client, :global_operations_client, :zone_operations_client, :project_client
+    URL_REGEX = /^google:(.+?):(.+)$/
 
     # URL scheme:
     # google:zone
@@ -68,10 +69,12 @@ module GoogleDriver
       )
       google.authorization.fetch_access_token!
 
-      @operations_client = Client::Operations.new(google, project, zone)
-      @instance_client = Client::Instance.new(google, project, zone)
-      @project_client = Client::Project.new(google, project, zone)
-
+      @instance_client = Client::Instances.new(google, project, zone)
+      @project_client = Client::Projects.new(google, project, zone)
+      @global_operations_client =
+        Client::GlobalOperations.new(google, project, zone)
+      @zone_operations_client =
+        Client::ZoneOperations.new(google, project, zone)
     end
 
     def self.canonicalize_url(driver_url, config)
@@ -83,26 +86,21 @@ module GoogleDriver
       #   but no node in chef?  We should just start tracking it.
       if instance_for(machine_spec).nil?
         name = machine_spec.name
-        operation_id = nil
+        operation = nil
         action_handler.perform_action "creating instance named #{name} in zone #{zone}" do
-          default_options = instance_client.default_create_options(zone, name)
-          options = hash_only_merge(default_options,machine_options[:insert_options])
-          operation_id = instance_client.create(options)
+          default_options = instance_client.default_create_options(name)
+          options = hash_only_merge(default_options, machine_options[:insert_options])
+          operation = instance_client.create(options)
         end
-        operation = wait_for_operation(action_handler, operation_id)
-        if operation[:error]
-          error = operation[:error][:errors][0]
-          raise "#{error[:code]}: #{error[:message]}"
-        end
+        zone_operations_client.wait_for_done(action_handler, operation)
         machine_spec.reference = {
             'driver_version' => Chef::Provisioning::GoogleDriver::VERSION,
             'allocated_at' => Time.now.utc.to_s,
             'host_node' => action_handler.host_node
         }
         machine_spec.driver_url = driver_url
-        machine_spec.reference['key_name'] = machine_options[:key_name] if machine_options[:key_name]
         # %w(is_windows ssh_username sudo use_private_ip_for_ssh ssh_gateway).each do |key|
-        %w(ssh_username sudo ssh_gateway).each do |key|
+        %w(ssh_username sudo ssh_gateway key_name).each do |key|
           machine_spec.reference[key] = machine_options[key.to_sym] if machine_options[key.to_sym]
         end
       end
@@ -112,19 +110,22 @@ module GoogleDriver
       name = machine_spec.name
       instance = instance_for(machine_spec)
 
-      if instance.nil? || instance[:status] == "TERMINATED"
+      if instance.nil?
         raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
-      if instance[:status] != "RUNNING"
-        # could be PROVISIONING, STAGING, STOPPING, STOPPED
-        if %w(STOPPING STOPPED).include?(instance[:status])
+      if !instance.running?
+        # could be PROVISIONING, STAGING, STOPPING, TERMINATED
+        if %w(STOPPING TERMINATED).include?(instance.status)
           action_handler.perform_action "instance named #{name} in zone #{zone} was stopped - starting it" do
             instance_client.start(name)
           end
         end
-        wait_for_status(action_handler, instance, "RUNNING")
+        instance_client.wait_for_status(action_handler, instance, 'RUNNING')
       end
+
+      # Refresh instance object so we get the new ip address and status
+      instance = instance_for(machine_spec)
 
       wait_for_transport(action_handler, machine_spec, machine_options, instance)
       machine_for(machine_spec, machine_options, instance)
@@ -134,12 +135,13 @@ module GoogleDriver
       name = machine_spec.name
       instance = instance_for(machine_spec)
       # https://cloud.google.com/compute/docs/instances#checkmachinestatus
-      if instance && !%w(STOPPING STOPPED TERMINATED).include?(instance[:status])
-        operation_id = nil
+      # TODO Shouldn't we also delete stopped machines?
+      if instance && !%w(STOPPING TERMINATED).include?(instance.status)
+        operation = nil
         action_handler.perform_action "destroying instance named #{name} in zone #{zone}" do
-          operation_id = instance_client.delete(name)
+          operation = instance_client.delete(name)
         end
-        wait_for_operation(action_handler, operation_id)
+        zone_operations_client.wait_for_done(action_handler, operation)
       end
 
       strategy = convergence_strategy_for(machine_spec, machine_options)
@@ -151,21 +153,30 @@ module GoogleDriver
       name = machine_spec.name
       instance = instance_for(machine_spec)
 
-      if instance.nil? || instance[:status] == "TERMINATED"
+      if instance.nil?
         raise "Machine #{name} does not have an instance associated with it, or instance does not exist."
       end
 
-      if instance[:status] != "STOPPED"
-        if instance[:status] != "STOPPING"
+      unless instance.terminated?
+        unless instance.stopping?
           action_handler.perform_action "stopping instance named #{name} in zone #{zone}" do
             instance_client.stop(name)
           end
         end
-        # TODO well this doesn't make any sense - if you send a stop signal, the instance shows up as
-        # TERMINATED status instead of STOPPED
-        #wait_for_status(action_handler, instance, "STOPPED")
-        wait_for_status(action_handler, instance, "TERMINATED")
+        instance_client.wait_for_status(action_handler, instance, 'TERMINATED')
       end
+
+      if instance.terminated?
+        Chef::Log.info "Instance #{instance.name} already stopped, nothing to do."
+      end
+    end
+
+    # TODO make these configurable and find a good place where to put them.
+    def tries
+      Client::GoogleBase::TRIES
+    end
+    def sleep
+      Client::GoogleBase::SLEEP_SECONDS
     end
 
     def wait_for_transport(action_handler, machine_spec, machine_options, instance)
@@ -173,7 +184,7 @@ module GoogleDriver
       unless transport.available?
         if action_handler.should_perform_actions
           Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
-            action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for instance #{instance[:name]} to be connectable (transport up and running) ...")
+            action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for instance #{instance.name} to be connectable (transport up and running) ...")
             raise "Not done" unless transport.available?
           end
           action_handler.report_progress "#{machine_spec.name} is now connectable"
@@ -201,7 +212,7 @@ module GoogleDriver
         options[:prefix] = 'sudo '
       end
 
-      remote_host = determine_remote_host(machine_spec, instance)
+      remote_host = instance.determine_remote_host
 
       #Enable pty by default
       options[:ssh_pty_enable] = true
@@ -214,7 +225,7 @@ module GoogleDriver
       result = {
         :auth_methods => [ 'publickey' ],
         :keys_only => true,
-        :host_key_alias => "#{instance[:id]}.GOOGLE"
+        :host_key_alias => "#{instance.id}.GOOGLE"
       }.merge(machine_options[:ssh_options] || {})
       # TODO right now we only allow keys created for the whole project and specified in the
       # bootstrap options - look at AWS for other options
@@ -232,18 +243,6 @@ module GoogleDriver
         raise "No key found to connect to #{machine_spec.name} (#{machine_spec.reference.inspect})!"
       end
       result
-    end
-
-    # TODO right now we assume the host has a accessConfig which is public
-    # https://cloud.google.com/compute/docs/reference/latest/instances#resource
-    def determine_remote_host(machine_spec, instance)
-      interfaces = instance[:networkInterfaces]
-      interfaces.select do |i|
-        if i.key?(:accessConfigs)
-          return i[:accessConfigs].select {|a| a.key?(:natIP)}.first[:natIP]
-        end
-      end
-      raise "Server #{instance[:name]} has no private or public IP address!"
     end
 
     def machine_for(machine_spec, machine_options, instance = nil)
@@ -305,37 +304,6 @@ module GoogleDriver
                              credentials.load_defaults
                              credentials
                            end
-    end
-
-    # TODO make these configurable
-    def tries
-      30
-    end
-    def sleep
-      5
-    end
-    # TODO the operation_id isn't useful output
-    def wait_for_operation(action_handler, operation_id)
-      Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
-        action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for operation #{operation_id} to complete")
-        # TODO it is really awesome that there are 3 types of operations, and the only way of telling
-        # which is which is to parse the full `:selfLink` from the response body.  Update this method
-        # to take the full operation response from Google so it can tell which operation endpoint
-        # to hit
-        operation = operations_client.zone_get(operation_id)
-        raise "Not done" unless operation[:body][:status] == "DONE"
-        operation
-      end
-    end
-
-    def wait_for_status(action_handler, instance, status)
-      instance_name = instance[:name]
-      Retryable.retryable(:tries => tries, :sleep => sleep, :matching => /Not done/) do |retries, exception|
-        action_handler.report_progress("  waited #{retries*sleep}/#{tries*sleep}s for instance #{instance[:name]} to become #{status}")
-        instance = instance_client.get(instance_name)
-        raise "Not done" unless instance[:status] == status
-        instance
-      end
     end
 
   end

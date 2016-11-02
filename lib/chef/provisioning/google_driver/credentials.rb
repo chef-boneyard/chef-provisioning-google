@@ -30,7 +30,7 @@ module GoogleDriver
     # If no client_email is specified, method will try to load the client_email from the json key.
     def validate!
       unless self[:p12_key_path] || self[:json_key_path]
-        raise "Google key path is missing. Options provided: #{self}"
+        raise "Google key path is missing. Options provided: #{self.inspect}"
       end
       if self[:json_key_path]
         json_key_hash = JSON.load(File.open(self[:json_key_path]))

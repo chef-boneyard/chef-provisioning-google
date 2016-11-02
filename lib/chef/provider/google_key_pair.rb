@@ -16,13 +16,13 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
     unless allow_overwrite
       if current_resource.private_key_path && current_resource.private_key_path != new_private_key_path ||
          current_resource.public_key_path && current_resource.public_key_path != new_public_key_path ||
-         current_fingerprint && current_fingerprint != Cheffish::KeyFormatter.encode(desired_key,:format => :fingerprint)
+         current_fingerprint && current_fingerprint != Cheffish::KeyFormatter.encode(desired_key, :format => :fingerprint)
         raise "cannot update google_key_pair[#{new_resource.name}] because 'allow_overwrite' is false"
       end
     end
 
     # We store the mapping from resource name to key in GCE
-    name_to_key = driver.project_client.get_ssh_mappings
+    name_to_key = driver.project_client.get.ssh_mappings
     if name_to_key.key?(new_resource.name)
       remote_key = name_to_key[new_resource.name]
       if remote_key != desired_key_openssh
@@ -41,20 +41,21 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   end
 
   action :destroy do
-    name_to_key = driver.project_client.get_ssh_mappings
+    metadata = driver.project_client.get
+    name_to_key = metadata.ssh_mappings
     remote_key = name_to_key[new_resource.name]
     if remote_key
       operation_id = nil
       username = remote_key.split(" ")[2].split("@")[0]
       converge_by "deleting key for username #{username}" do
-        operation_id = driver.project_client.delete_key_by_value(remote_key)
+        metadata.delete_ssh_key(remote_key)
       end
-      wait_for_operation(operation_id)
 
       converge_by "deleting metadata mapping for google_key_pair[#{new_resource.name}]" do
-        operation_id = driver.project_client.delete_ssh_mapping(new_resource.name)
+        metadata.delete_ssh_mapping(new_resource.name)
       end
-      wait_for_operation(operation_id)
+
+      reupload_metadata(metadata)
     end
     # TODO do we care about deleting the local key?
   end
@@ -64,7 +65,7 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   def load_current_resource
     @current_resource = Chef::Resource::GoogleKeyPair.new(new_resource.name, run_context)
 
-    existing_key = driver.project_client.get_ssh_mappings[new_resource.name]
+    existing_key = driver.project_client.get.ssh_mappings[new_resource.name]
     if existing_key
       @current_fingerprint = Cheffish::KeyFormatter.encode(
         Cheffish::KeyFormatter.decode(existing_key)[0],
@@ -139,17 +140,17 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   end
 
   def set_key_and_mapping
-    operation_id = nil
     username = desired_key_openssh.split(" ")[2].split("@")[0]
+    metadata = driver.project_client.get
     converge_by "adding key for username #{username}" do
-      operation_id = driver.project_client.ensure_key(username, desired_key_openssh)
+      metadata.ensure_key(username, desired_key_openssh)
     end
-    wait_for_operation(operation_id)
 
     converge_by "ensuring we store metadata mapping for google_key_pair[#{new_resource.name}]" do
-      operation_id = driver.project_client.set_ssh_mapping(new_resource.name, desired_key_openssh)
+      metadata.set_ssh_mapping(new_resource.name, desired_key_openssh)
     end
-    wait_for_operation(operation_id)
+
+    reupload_metadata(metadata)
   end
 
   # TODO abstract into base class
@@ -162,16 +163,10 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
     @action_handler ||= Chef::Provisioning::ChefProviderActionHandler.new(self)
   end
 
-  # TODO de-dup with driver or abstract to base class
-  # TODO update to take the full operation body
-  def wait_for_operation(operation_id)
-    Retryable.retryable(:tries => 30, :sleep => 5, :matching => /Not done/) do |retries, exception|
-      action_handler.report_progress("  waited #{retries*5}/#{30*5}s for operation #{operation_id} to complete")
-      # TODO it is really awesome that there are 3 types of operations, and the only way of telling
-      # which is which is to parse the full `:selfLink` from the response body
-      operation = driver.operations_client.global_get(operation_id)
-      raise "Not done" unless operation[:body][:status] == "DONE"
-      operation
+  def reupload_metadata(metadata)
+    converge_by 'reuploading changed metadata' do
+      operation = driver.project_client.set_common_instance_metadata(metadata)
+      driver.global_operations_client.wait_for_done(action_handler, operation)
     end
   end
 end

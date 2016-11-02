@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.email = 'sean@chef.io'
   s.homepage = 'https://github.com/opscode/chef-provisioning-google'
 
-  s.add_dependency 'chef', '>= 11.16.4'
+  s.add_dependency 'chef', '~> 12.1', "!= 12.4.0"  # 12.4.0 is incompatible.
   s.add_dependency 'chef-provisioning', '~> 1.0'
   s.add_dependency 'google-api-client', '< 0.9', '>= 0.6.2'
   s.add_dependency 'ffi-yajl', '~> 2.2'
@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rspec', '~> 3.0'
   s.add_development_dependency 'rake'
   s.add_development_dependency 'pry'
+  s.add_development_dependency 'pry-byebug'
 
   s.bindir       = 'bin'
   s.executables  = %w( )
