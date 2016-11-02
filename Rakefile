@@ -1,10 +1,22 @@
-require 'bundler'
-require 'bundler/gem_tasks'
-require 'rspec/core/rake_task'
+require "bundler"
+require "bundler/gem_tasks"
 
-task default: :spec
+task default: [:spec, :style]
 
-desc 'Run specs'
-RSpec::Core::RakeTask.new(:spec) do |spec|
-  spec.pattern = 'spec/**/*_spec.rb'
+begin
+  require "chefstyle"
+  require "rubocop/rake_task"
+
+  desc "Run Ruby style checks"
+  RuboCop::RakeTask.new(:style)
+rescue LoadError => e
+  puts ">>> Gem load error: #{e}, omitting #{task.name}" unless ENV["CI"]
+end
+
+begin
+  desc "Run rspec"
+  require "rspec/core/rake_task"
+  RSpec::Core::RakeTask.new(:spec)
+rescue LoadError => e
+  puts ">>> Gem load error: #{e}, omitting #{task.name}" unless ENV["CI"]
 end
