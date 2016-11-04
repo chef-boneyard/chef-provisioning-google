@@ -1,7 +1,7 @@
-require 'chef/provider/lwrp_base'
-require 'cheffish/key_formatter'
-require 'chef/resource/google_key_pair'
-require 'retryable'
+require "chef/provider/lwrp_base"
+require "cheffish/key_formatter"
+require "chef/resource/google_key_pair"
+require "retryable"
 
 class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   use_inline_resources
@@ -15,8 +15,8 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
     #Check if keys exist
     unless allow_overwrite
       if current_resource.private_key_path && current_resource.private_key_path != new_private_key_path ||
-         current_resource.public_key_path && current_resource.public_key_path != new_public_key_path ||
-         current_fingerprint && current_fingerprint != Cheffish::KeyFormatter.encode(desired_key, :format => :fingerprint)
+          current_resource.public_key_path && current_resource.public_key_path != new_public_key_path ||
+          current_fingerprint && current_fingerprint != Cheffish::KeyFormatter.encode(desired_key, :format => :fingerprint)
         raise "cannot update google_key_pair[#{new_resource.name}] because 'allow_overwrite' is false"
       end
     end
@@ -97,7 +97,7 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
       private_key resource.private_key_path do
         public_key_path resource.public_key_path if resource.public_key_path
         if resource.private_key_options
-          resource.private_key_options.each_pair do |key,value|
+          resource.private_key_options.each_pair do |key, value|
             send(key, value)
           end
         end
@@ -164,7 +164,7 @@ class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
   end
 
   def reupload_metadata(metadata)
-    converge_by 'reuploading changed metadata' do
+    converge_by "reuploading changed metadata" do
       operation = driver.project_client.set_common_instance_metadata(metadata)
       driver.global_operations_client.wait_for_done(action_handler, operation)
     end

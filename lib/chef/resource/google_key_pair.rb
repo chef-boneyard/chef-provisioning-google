@@ -1,4 +1,4 @@
-require 'chef/resource/lwrp_base'
+require "chef/resource/lwrp_base"
 
 class Chef::Resource::GoogleKeyPair < Chef::Resource::LWRPBase
   self.resource_name = self.dsl_name
@@ -28,19 +28,18 @@ class Chef::Resource::GoogleKeyPair < Chef::Resource::LWRPBase
   def after_created
     # We default these here so load_current_resource can diff
     if private_key_path.nil?
-      private_key_path ::File.join(driver.config[:private_key_write_path], 'google_default')
+      private_key_path ::File.join(driver.config[:private_key_write_path], "google_default")
     elsif Pathname.new(private_key_path).relative?
       private_key_path ::File.join(driver.config[:private_key_write_path], private_key_path)
     end
     # TODO you don't actually need to write the private key to disc if it isn't provided
     # it can be read from the private key, but this code update needs testing
     if public_key_path.nil?
-      public_key_path ::File.join(driver.config[:private_key_write_path], 'google_default.pub')
+      public_key_path ::File.join(driver.config[:private_key_write_path], "google_default.pub")
     elsif Pathname.new(public_key_path).relative?
       public_key_path ::File.join(driver.config[:private_key_write_path], public_key_path)
     end
   end
-
 
   # TODO introduce base class and add this as attribute, like AWS does
   # Ideally, we won't be creating lots of copies of the same driver object, but it is okay
