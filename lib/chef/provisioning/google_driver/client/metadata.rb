@@ -80,7 +80,8 @@ class Chef
 
           # Gets one metadata item with the given key.
           def get_metadata_item(key)
-            @items.find { |item| item[:key] == key }[:value]
+            match = @items.find { |item| item[:key] == key }
+            match[:value] if match
           end
 
           SSH_KEYS = "sshKeys"

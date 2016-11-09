@@ -1,11 +1,6 @@
 require "chef/resource/lwrp_base"
 
 class Chef::Resource::GoogleKeyPair < Chef::Resource::LWRPBase
-  self.resource_name = self.dsl_name
-
-  # TODO instance specific or project wide?
-  # Right now we only have project wide keys
-
   provides :google_key_pair
 
   actions :create, :destroy

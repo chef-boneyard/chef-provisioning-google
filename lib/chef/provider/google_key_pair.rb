@@ -4,6 +4,8 @@ require "chef/resource/google_key_pair"
 require "retryable"
 
 class Chef::Provider::GoogleKeyPair < Chef::Provider::LWRPBase
+  provides :google_key_pair
+
   use_inline_resources
 
   # TODO make sure we can take relative paths - where do we get base path from then?
